@@ -1,0 +1,12 @@
+# Legacy paths kept from earlier layout
+# data/fake-leaks/Containerfile
+# data/fake-leaks/venv/
+# data/fake-leaks/venv3/
+
+# Python artifacts
+__pycache__/
+
+# Node / pnpm artifacts
+node_modules/
+.pnpm-store/
+coverage/

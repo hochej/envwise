@@ -1,0 +1,24 @@
+{
+  "name": "envwise",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fixtures:curate": "python3 analysis/generate_curated_env_files.py",
+    "fixtures:check": "pnpm fixtures:curate && git diff --exit-code -- test/fixtures/valid-secrets.env test/fixtures/invalid-vars.env",
+    "lint": "biome check . --error-on-warnings",
+    "lint:fix": "biome check . --write --unsafe --error-on-warnings",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:corpus": "vitest run test/classifier-corpus.spec.ts",
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
+    "@types/node": "^24.3.0",
+    "husky": "^9.1.7",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

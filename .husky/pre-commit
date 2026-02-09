@@ -1,0 +1,1 @@
+pnpm lint && pnpm fixtures:check && pnpm test && pnpm typecheck
