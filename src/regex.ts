@@ -8,6 +8,100 @@ const POSIX_CLASS_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\[\[:space:\]\]/g, "[\\t\\r\\n\\f\\v ]"],
 ];
 
+const INLINE_FLAG_TOKEN_RE = /^\(\?([A-Za-z-]+)\)/;
+const SUPPORTED_INLINE_FLAGS_RE = /^-?[ims]+$/;
+
+function normalizeInlineFlags(pattern: string): string {
+  let out = "";
+  let escaped = false;
+  let inCharClass = false;
+  let depth = 0;
+
+  // Bare inline modifiers (e.g. `(?i)`) are not supported by JavaScript,
+  // but scoped modifiers (e.g. `(?i:...)`) are. We rewrite bare modifiers
+  // into scoped groups that extend to the end of the current group depth.
+  const pendingClosures = new Map<number, number>();
+
+  const queueClosure = (groupDepth: number): void => {
+    pendingClosures.set(groupDepth, (pendingClosures.get(groupDepth) ?? 0) + 1);
+  };
+
+  const flushClosures = (groupDepth: number): void => {
+    const count = pendingClosures.get(groupDepth) ?? 0;
+    if (count > 0) {
+      out += ")".repeat(count);
+      pendingClosures.delete(groupDepth);
+    }
+  };
+
+  for (let i = 0; i < pattern.length; i += 1) {
+    const ch = pattern[i];
+
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+
+    if (inCharClass) {
+      out += ch;
+      if (ch === "]") {
+        inCharClass = false;
+      }
+      continue;
+    }
+
+    if (ch === "[") {
+      out += ch;
+      inCharClass = true;
+      continue;
+    }
+
+    if (ch === "(" && pattern[i + 1] === "?") {
+      const tokenMatch = INLINE_FLAG_TOKEN_RE.exec(pattern.slice(i));
+      const flags = tokenMatch?.[1];
+
+      if (tokenMatch && flags && SUPPORTED_INLINE_FLAGS_RE.test(flags)) {
+        out += `(?${flags}:`;
+        queueClosure(depth);
+        i += tokenMatch[0].length - 1;
+        continue;
+      }
+
+      depth += 1;
+      out += ch;
+      continue;
+    }
+
+    if (ch === ")") {
+      flushClosures(depth);
+      if (depth > 0) {
+        depth -= 1;
+      }
+      out += ch;
+      continue;
+    }
+
+    out += ch;
+  }
+
+  flushClosures(depth);
+
+  if (pendingClosures.size > 0) {
+    for (const [, count] of [...pendingClosures.entries()].sort((a, b) => b[0] - a[0])) {
+      out += ")".repeat(count);
+    }
+  }
+
+  return out;
+}
+
 export function normalizeRegexForJs(input: string): { pattern: string; flags: string } {
   let pattern = input;
 
@@ -19,28 +113,16 @@ export function normalizeRegexForJs(input: string): { pattern: string; flags: st
     pattern = pattern.replace(source, target);
   }
 
-  // JavaScript does not support inline flag groups from RE2/PCRE style.
-  // We conservatively hoist case-insensitive / dotall behavior to top-level flags.
-  const hasCaseInsensitive = pattern.includes("(?i)") || pattern.includes("(?i:");
-  const hasDotAll = pattern.includes("(?s)");
-
-  pattern = pattern.replace(/\(\?i\)/g, "");
-  pattern = pattern.replace(/\(\?i:/g, "(?:");
-  pattern = pattern.replace(/\(\?-i:/g, "(?:");
-
-  // RE2-style scoped dotall tokens used by some upstream rules.
-  pattern = pattern.replace(/\(\?s:\.\)/g, "[\\s\\S]");
-  pattern = pattern.replace(/\(\?s\)/g, "");
+  // Rewrite bare inline flags (`(?i)`, `(?s)`, `(?m)`) into scoped groups.
+  pattern = normalizeInlineFlags(pattern);
 
   // Some upstream patterns use Python-style named groups (`(?P<name>...)`).
   // JavaScript uses `(?<name>...)`.
   pattern = pattern.replace(/\(\?P<([A-Za-z][A-Za-z0-9_]*)>/g, "(?<$1>");
 
-  const flags = `${hasCaseInsensitive ? "i" : ""}${hasDotAll ? "s" : ""}`;
-
   return {
     pattern,
-    flags,
+    flags: "",
   };
 }
 

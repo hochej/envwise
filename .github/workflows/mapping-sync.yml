@@ -1,0 +1,54 @@
+name: Sync mapping from hogwash
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-mapping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Python 3.12 via uv
+        run: uv python install 3.12
+
+      - name: Update bundled mapping module from latest hogwash release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: uv run --python 3.12 python analysis/generate_mapping_module.py --latest
+
+      - name: Check for mapping changes
+        id: changes
+        run: |
+          if git diff --quiet -- src/generated/secret-mapping.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(mapping): sync from hogwash latest release"
+          title: "chore(mapping): sync from hogwash latest release"
+          body: |
+            Automated mapping sync from the latest `hochej/hogwash` release.
+
+            - regenerates `src/generated/secret-mapping.ts`
+            - source mapping JSON is fetched in CI and not stored in this repository
+          branch: "ci/sync-hogwash-mapping"
+          delete-branch: true
+          add-paths: |
+            src/generated/secret-mapping.ts

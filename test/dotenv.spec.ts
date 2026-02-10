@@ -29,6 +29,40 @@ PLAIN=value-3
     });
   });
 
+  it("does not expand dotenv interpolation by default", () => {
+    const content = `API_HOST=api.example.com\nAPI_URL=https://\${API_HOST}/v1\n`;
+    const parsed = parseDotenv(content);
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.values).toEqual({
+      API_HOST: "api.example.com",
+      API_URL: "https://$" + "{API_HOST}/v1",
+    });
+  });
+
+  it("expands dotenv interpolation when enabled", () => {
+    const content = `API_HOST=api.example.com\nAPI_URL=https://\${API_HOST}/v1\n`;
+    const parsed = parseDotenv(content, { expand: true });
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.values).toEqual({
+      API_HOST: "api.example.com",
+      API_URL: "https://api.example.com/v1",
+    });
+  });
+
+  it("accepts dotenv-compatible key names", () => {
+    const content = `123INVALID_NAME=value\nNAME.WITH.DOTS=ok\nNAME-WITH-DASH=ok\n`;
+    const parsed = parseDotenv(content);
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.values).toEqual({
+      "123INVALID_NAME": "value",
+      "NAME.WITH.DOTS": "ok",
+      "NAME-WITH-DASH": "ok",
+    });
+  });
+
   it("reports malformed lines", () => {
     const content = `GOOD=value\nnot an assignment\nANOTHER=ok\n`;
     const parsed = parseDotenv(content);

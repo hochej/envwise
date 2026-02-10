@@ -2,6 +2,7 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { parseDotenv } from "./dotenv.js";
 import { classifyEnvForGondolin } from "./integration.js";
@@ -12,14 +13,21 @@ interface CliOptions {
   json: boolean;
   showSafe: boolean;
   includeSecretValues: boolean;
+  expand: boolean;
 }
 
-function parseArgs(argv: string[]): CliOptions {
+function isFlag(value: string | undefined): boolean {
+  return typeof value === "string" && value.startsWith("-");
+}
+
+export function parseArgs(argv: string[]): CliOptions {
   let mode: "env" | "file" = "env";
+  let explicitMode: "env" | "file" | null = null;
   let filePath: string | undefined;
   let json = false;
   let showSafe = false;
   let includeSecretValues = false;
+  let expand = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -29,13 +37,28 @@ function parseArgs(argv: string[]): CliOptions {
     }
 
     if (arg === "--env") {
+      if (explicitMode === "file") {
+        throw new Error("--env cannot be combined with --file");
+      }
+
       mode = "env";
+      explicitMode = "env";
       continue;
     }
 
     if (arg === "--file") {
+      if (explicitMode === "env") {
+        throw new Error("--file cannot be combined with --env");
+      }
+
+      const next = argv[i + 1];
+      if (!next || isFlag(next)) {
+        throw new Error("--file requires a non-flag path");
+      }
+
       mode = "file";
-      filePath = argv[i + 1];
+      explicitMode = "file";
+      filePath = next;
       i += 1;
       continue;
     }
@@ -55,6 +78,11 @@ function parseArgs(argv: string[]): CliOptions {
       continue;
     }
 
+    if (arg === "--expand" || arg === "--exapnd") {
+      expand = true;
+      continue;
+    }
+
     if (arg === "-h" || arg === "--help") {
       printHelp(0);
     }
@@ -66,12 +94,17 @@ function parseArgs(argv: string[]): CliOptions {
     throw new Error("--file requires a path");
   }
 
+  if (expand && mode !== "file") {
+    throw new Error("--expand can only be used with --file");
+  }
+
   return {
     mode,
     filePath,
     json,
     showSafe,
     includeSecretValues,
+    expand,
   };
 }
 
@@ -80,11 +113,12 @@ function printHelp(exitCode: number): never {
 
 Usage:
   envwise inspect --env [--json] [--show-safe] [--include-secret-values]
-  envwise inspect --file .env [--json] [--show-safe] [--include-secret-values]
+  envwise inspect --file .env [--expand] [--json] [--show-safe] [--include-secret-values]
 
 Options:
   --env                   inspect current process env (default)
   --file PATH             inspect dotenv file
+  --expand                enable dotenv-expand interpolation (off by default)
   --json                  print machine-readable JSON
   --show-safe             include safe variable names in text output
   --include-secret-values include plaintext secret values in JSON output (dangerous)
@@ -175,8 +209,14 @@ async function main(): Promise<void> {
       throw new Error("--file requires a path");
     }
 
+    if (options.expand) {
+      process.stderr.write(
+        "warning: --expand uses dotenv-expand and may be O(n²) on large dotenv files\n",
+      );
+    }
+
     const content = await readFile(resolve(filePath), "utf8");
-    const parsed = parseDotenv(content);
+    const parsed = parseDotenv(content, { expand: options.expand });
     env = parsed.values;
     parseErrors = parsed.errors;
   } else {
@@ -196,6 +236,7 @@ async function main(): Promise<void> {
           source: options.mode,
           file: options.filePath,
           parseErrors,
+          dotenvExpandEnabled: options.expand,
           secretValuesIncluded: options.includeSecretValues,
           ...result,
           secretsMap,
@@ -224,7 +265,18 @@ async function main(): Promise<void> {
   printTextResult(result, options.showSafe);
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
-});
+function isMainModule(): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+
+  return import.meta.url === pathToFileURL(entry).href;
+}
+
+if (isMainModule()) {
+  main().catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  });
+}

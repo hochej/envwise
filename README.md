@@ -22,6 +22,14 @@ classify("GITHUB_TOKEN", "ghp_...");
 
 classifyEnv(process.env as Record<string, string>);
 // => { secrets: [...], dropped: [...], safe: [...] }
+
+import { parseDotenv } from "@hochej/envwise";
+
+parseDotenv("API_HOST=api.example.com\nAPI_URL=https://${API_HOST}\n");
+// => interpolation disabled by default
+
+parseDotenv("API_HOST=api.example.com\nAPI_URL=https://${API_HOST}\n", { expand: true });
+// => enable dotenv-expand interpolation (opt-in)
 ```
 
 ### Matching order
@@ -44,6 +52,9 @@ envwise inspect --env
 # inspect dotenv file
 envwise inspect --file .env
 
+# opt-in dotenv variable interpolation (can be slow on very large files)
+envwise inspect --file .env --expand
+
 # machine-readable output (secret values redacted by default)
 envwise inspect --file .env --json
 
@@ -63,12 +74,23 @@ const { secretsMap } = classifyEnvForGondolin(process.env as Record<string, stri
 
 ## Development
 
+`envwise` ships with a bundled mapping file (`src/generated/secret-mapping.ts`). End users do **not** need to run mapping update tooling.
+
+Raw `secret-mapping.gondolin.json`/`.sha256` files are not stored in this repo; CI fetches from `hochej/hogwash` when regenerating the bundled module.
+
 ```bash
+# prereq: install uv (https://docs.astral.sh/uv/)
 pnpm install
+
+# maintainer workflow: pull latest mapping from hogwash via GitHub API
 pnpm mapping:update -- --latest
+# optional integrity pin: pnpm mapping:update -- --tag vX.Y.Z --sha256 <expected_sha>
+
 pnpm fixtures:curate
 pnpm fixtures:check
 pnpm test
 pnpm typecheck
 pnpm build
 ```
+
+> Maintainer tooling uses `uv` to run Python scripts (in CI and package scripts).

@@ -10,6 +10,5 @@
     "types": ["node", "vitest/globals"],
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "test/**/*.spec.ts", "test/utils/**/*.ts", "vitest.config.ts"],
-  "exclude": ["test/fixtures/raw/**"]
+  "include": ["src/**/*.ts", "test/**/*.spec.ts", "test/utils/**/*.ts", "vitest.config.ts"]
 }

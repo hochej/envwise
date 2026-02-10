@@ -7,7 +7,7 @@ const KEYWORD_SECRET_HINT_PATTERN =
 const GENERIC_SECRET_NAME_PATTERN =
   /(?:^|_)(KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?|PASSPHRASE|PRIVATE_KEY)(?:$|_)/i;
 
-function dedupeHosts(hosts: string[]): string[] {
+function dedupeHosts(hosts: readonly string[]): string[] {
   return [...new Set(hosts)];
 }
 
@@ -43,18 +43,19 @@ function resolveHostsFromName(name: string): {
 
   const lower = name.toLowerCase();
   const normalizedName = normalizeToken(name);
+  const hasSecretHint = KEYWORD_SECRET_HINT_PATTERN.test(name);
+
+  if (!hasSecretHint) {
+    return { hosts: [] };
+  }
 
   for (const entry of store.keywordEntries) {
     if (!(lower.includes(entry.keyword) || normalizedName.includes(entry.normalized))) {
       continue;
     }
 
-    if (!KEYWORD_SECRET_HINT_PATTERN.test(name)) {
-      continue;
-    }
-
     return {
-      hosts: entry.hosts,
+      hosts: dedupeHosts(entry.hosts),
       matchedBy: "name-keyword",
       keyword: entry.keyword,
     };
@@ -85,8 +86,10 @@ export function classify(name: string, value: string, options?: ClassifyOptions)
     }
 
     const fromKeyword = pattern.keyword ? (store.raw.keyword_host_map[pattern.keyword] ?? []) : [];
-    const fromName = resolveHostsFromName(name).hosts;
-    const hosts = fromKeyword.length > 0 ? dedupeHosts(fromKeyword) : dedupeHosts(fromName);
+    const hosts =
+      fromKeyword.length > 0
+        ? dedupeHosts(fromKeyword)
+        : dedupeHosts(resolveHostsFromName(name).hosts);
 
     return {
       name,
@@ -142,8 +145,11 @@ export function classifyEnv(
   };
 
   for (const [name, rawValue] of Object.entries(env)) {
-    const value = rawValue ?? "";
-    const classified = classify(name, value, options);
+    if (rawValue === undefined) {
+      continue;
+    }
+
+    const classified = classify(name, rawValue, options);
 
     if (!classified.isSecret) {
       result.safe.push(name);

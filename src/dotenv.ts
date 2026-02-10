@@ -1,73 +1,48 @@
+import { parse as parseWithDotenv } from "dotenv";
+import { expand } from "dotenv-expand";
+
+import { isIgnorableEnvLine, parseEnvAssignmentLine } from "./env-assignment.js";
+
+export interface ParseDotenvOptions {
+  /**
+   * Enable dotenv-expand variable interpolation. Disabled by default because
+   * dotenv-expand may be quadratic on large files.
+   */
+  expand?: boolean;
+}
+
 export interface DotenvParseResult {
   values: Record<string, string>;
   errors: string[];
 }
 
-const ASSIGNMENT_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/;
-
-function stripInlineComment(input: string): string {
-  let inSingle = false;
-  let inDouble = false;
-
-  for (let i = 0; i < input.length; i += 1) {
-    const ch = input[i];
-
-    if (ch === "'" && !inDouble) {
-      inSingle = !inSingle;
-      continue;
-    }
-
-    if (ch === '"' && !inSingle) {
-      inDouble = !inDouble;
-      continue;
-    }
-
-    if (ch === "#" && !inSingle && !inDouble) {
-      const prev = i === 0 ? "" : input[i - 1];
-      if (prev === "" || /\s/.test(prev)) {
-        return input.slice(0, i).trim();
-      }
-    }
-  }
-
-  return input.trim();
-}
-
-function unquote(input: string): string {
-  if (input.length >= 2) {
-    const first = input[0];
-    const last = input[input.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return input.slice(1, -1);
-    }
-  }
-
-  return input;
-}
-
-export function parseDotenv(content: string): DotenvParseResult {
-  const values: Record<string, string> = {};
+function collectSyntaxErrors(content: string): string[] {
   const errors: string[] = [];
   const lines = content.split(/\r?\n/);
 
   lines.forEach((line, index) => {
-    const lineNumber = index + 1;
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith("#")) {
+    if (isIgnorableEnvLine(line)) {
       return;
     }
 
-    const match = ASSIGNMENT_RE.exec(trimmed);
-    if (!match) {
-      errors.push(`line ${lineNumber}: not a valid assignment`);
-      return;
+    if (!parseEnvAssignmentLine(line)) {
+      errors.push(`line ${index + 1}: not a valid assignment`);
     }
-
-    const [, name, rawValue] = match;
-    const value = unquote(stripInlineComment(rawValue));
-    values[name] = value;
   });
 
-  return { values, errors };
+  return errors;
+}
+
+export function parseDotenv(content: string, options: ParseDotenvOptions = {}): DotenvParseResult {
+  const parsed = parseWithDotenv(content);
+
+  let values = parsed;
+  if (options.expand && content.includes("$")) {
+    values = expand({ parsed: { ...parsed }, processEnv: {} }).parsed ?? parsed;
+  }
+
+  return {
+    values,
+    errors: collectSyntaxErrors(content),
+  };
 }

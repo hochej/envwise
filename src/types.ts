@@ -26,6 +26,7 @@ export interface ValuePattern {
   keyword?: string;
   regex: string;
   keywords?: string[];
+  secret_group?: number;
 }
 
 export interface SecretMappingData {

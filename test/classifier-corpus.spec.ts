@@ -8,6 +8,52 @@ import { extractEnvAssignments } from "./utils/env";
 
 const CURATED_DIR = resolve(process.cwd(), "test/fixtures");
 
+const VALUE_PATTERN_EXPECTATIONS: Record<
+  string,
+  { patternId: string; hosts: string[]; keyword: string }
+> = {
+  VP_GITHUB_PAT: {
+    patternId: "github-pat",
+    hosts: ["api.github.com"],
+    keyword: "github",
+  },
+  VP_GITHUB_FINE_GRAINED: {
+    patternId: "github-fine-grained-pat",
+    hosts: ["api.github.com"],
+    keyword: "github",
+  },
+  VP_DIGITALOCEAN_PAT: {
+    patternId: "digitalocean-pat",
+    hosts: ["api.digitalocean.com", "cloud.digitalocean.com"],
+    keyword: "digitalocean",
+  },
+  VP_DIGITALOCEAN_ACCESS: {
+    patternId: "digitalocean-access-token",
+    hosts: ["api.digitalocean.com", "cloud.digitalocean.com"],
+    keyword: "digitalocean",
+  },
+  VP_GCP_API_KEY: {
+    patternId: "gcp-api-key",
+    hosts: ["iam.googleapis.com", "www.googleapis.com"],
+    keyword: "gcp",
+  },
+  VP_SLACK_APP: {
+    patternId: "slack-app-token",
+    hosts: ["slack.com"],
+    keyword: "slack",
+  },
+  VP_TWILIO_API_KEY: {
+    patternId: "twilio-api-key",
+    hosts: ["verify.twilio.com"],
+    keyword: "twilio",
+  },
+  VP_ANTHROPIC_API_KEY: {
+    patternId: "anthropic-api-key",
+    hosts: ["api.anthropic.com"],
+    keyword: "anthropic",
+  },
+};
+
 async function loadAssignments(fileName: string): Promise<Array<{ name: string; value: string }>> {
   const content = await readFile(resolve(CURATED_DIR, fileName), "utf8");
   return extractEnvAssignments(content).map(({ name, value }) => ({ name, value }));
@@ -26,6 +72,7 @@ describe("classifier corpus evaluation (curated fixtures)", () => {
     let detected = 0;
     let mapped = 0;
     let dropped = 0;
+    let matchedByValue = 0;
 
     for (const sample of valid) {
       const result = classify(sample.name, sample.value);
@@ -38,6 +85,9 @@ describe("classifier corpus evaluation (curated fixtures)", () => {
       if (result.dropped) {
         dropped += 1;
       }
+      if (result.matchedBy === "value") {
+        matchedByValue += 1;
+      }
     }
 
     const detectionRate = ratio(detected, valid.length);
@@ -48,6 +98,7 @@ describe("classifier corpus evaluation (curated fixtures)", () => {
       detected,
       mapped,
       dropped,
+      matchedByValue,
       detectionRate,
       mappingRate,
     });
@@ -56,6 +107,26 @@ describe("classifier corpus evaluation (curated fixtures)", () => {
     expect(mappingRate).toBeGreaterThanOrEqual(0.9);
     expect(mapped).toBeGreaterThanOrEqual(90);
     expect(dropped).toBeLessThanOrEqual(10);
+    expect(matchedByValue).toBeGreaterThanOrEqual(Object.keys(VALUE_PATTERN_EXPECTATIONS).length);
+  });
+
+  it("matches realistic token fixtures by expected value patterns", async () => {
+    const valid = await loadAssignments("valid-secrets.env");
+
+    const validByName = new Map(valid.map((entry) => [entry.name, entry.value]));
+
+    for (const [name, expectation] of Object.entries(VALUE_PATTERN_EXPECTATIONS)) {
+      const value = validByName.get(name);
+      expect(value, `missing fixture: ${name}`).toBeDefined();
+
+      const result = classify(name, value as string);
+      expect(result.isSecret, `${name} should be detected`).toBe(true);
+      expect(result.matchedBy, `${name} should match by value`).toBe("value");
+      expect(result.patternId, `${name} should hit expected pattern`).toBe(expectation.patternId);
+      expect(result.keyword, `${name} should map expected keyword`).toBe(expectation.keyword);
+      expect(result.dropped, `${name} should be mapped`).toBe(false);
+      expect(result.hosts.sort()).toEqual(expectation.hosts.slice().sort());
+    }
   });
 
   it("keeps curated invalid vars mostly non-secret", async () => {

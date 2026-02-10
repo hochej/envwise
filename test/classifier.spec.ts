@@ -116,6 +116,19 @@ describe("classifier MVP", () => {
     expect(result.safe).toContain("PATH");
   });
 
+  it("skips undefined env values", () => {
+    const env = {
+      GITHUB_TOKEN: undefined,
+      PATH: "/usr/bin:/bin",
+    };
+
+    const result = classifyEnv(env);
+
+    expect(result.secrets).toHaveLength(0);
+    expect(result.dropped).toHaveLength(0);
+    expect(result.safe).toEqual(["PATH"]);
+  });
+
   it("builds gondolin-compatible secrets map", () => {
     const env = {
       GITHUB_TOKEN: buildGithubPat(),
@@ -132,5 +145,21 @@ describe("classifier MVP", () => {
     });
     expect(result.dropped.map((r) => r.name)).toContain("CUSTOM_SECRET");
     expect(result.safe).toContain("PATH");
+  });
+
+  it("does not emit undefined secret values in secretsMap", () => {
+    const env: Record<string, string | undefined> = {
+      GITHUB_TOKEN: undefined,
+      GITHUB_PAT: buildGithubPat(),
+    };
+
+    const result = classifyEnvForGondolin(env);
+
+    expect(result.secrets.map((entry) => entry.name)).toEqual(["GITHUB_PAT"]);
+    expect(result.secretsMap.GITHUB_PAT).toEqual({
+      hosts: ["api.github.com"],
+      value: env.GITHUB_PAT,
+    });
+    expect(result.secretsMap.GITHUB_TOKEN).toBeUndefined();
   });
 });

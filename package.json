@@ -1,6 +1,6 @@
 {
   "name": "@hochej/envwise",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Classify environment variables into safe, mapped secret, and dropped secret sets.",
   "license": "Apache-2.0",
   "private": false,
@@ -21,8 +21,8 @@
   },
   "files": [
     "dist",
-    "data/gondolin/secret-mapping.gondolin.json",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "repository": {
@@ -35,9 +35,9 @@
   "homepage": "https://github.com/hochej/envwise#readme",
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "pnpm clean && tsc -p tsconfig.build.json",
-    "mapping:update": "python3 analysis/update_mapping_from_hogwash.py --latest",
-    "fixtures:curate": "python3 analysis/generate_curated_env_files.py",
+    "build": "pnpm clean && tsc -p tsconfig.build.json && chmod +x dist/cli.js",
+    "mapping:update": "uv run --python 3.12 python analysis/generate_mapping_module.py",
+    "fixtures:curate": "uv run --python 3.12 python analysis/generate_curated_env_files.py",
     "fixtures:check": "pnpm fixtures:curate && git diff --exit-code -- test/fixtures/valid-secrets.env test/fixtures/invalid-vars.env",
     "lint": "biome check . --error-on-warnings",
     "lint:fix": "biome check . --write --unsafe --error-on-warnings",
@@ -54,5 +54,9 @@
     "husky": "^9.1.7",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.4",
+    "dotenv-expand": "^12.0.3"
   }
 }
