@@ -1,5 +1,5 @@
-import { classifyEnv } from "./classifier";
-import type { ClassifyEnvResult, ClassifyOptions } from "./types";
+import { classifyEnv } from "./classifier.js";
+import type { ClassifyEnvResult, ClassifyOptions } from "./types.js";
 
 export interface GondolinSecretDefinition {
   hosts: string[];

@@ -77,6 +77,18 @@ describe("classifier MVP", () => {
     expect(result.hosts).toEqual(["api.example.internal"]);
   });
 
+  it("supports lowercase override keys for uppercase env names", () => {
+    const result = classify("GITHUB_TOKEN", "non-secret", {
+      overrides: {
+        github_token: ["api.example.internal"],
+      },
+    });
+
+    expect(result.isSecret).toBe(true);
+    expect(result.matchedBy).toBe("override");
+    expect(result.hosts).toEqual(["api.example.internal"]);
+  });
+
   it("treats empty override hosts as dropped", () => {
     const result = classify("CUSTOM_API_KEY", "non-secret", {
       overrides: {

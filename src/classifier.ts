@@ -1,5 +1,5 @@
-import { getPatternStore } from "./patterns";
-import type { ClassifyEnvResult, ClassifyOptions, ClassifyResult } from "./types";
+import { getPatternStore } from "./patterns.js";
+import type { ClassifyEnvResult, ClassifyOptions, ClassifyResult } from "./types.js";
 
 const KEYWORD_SECRET_HINT_PATTERN =
   /(?:^|_)(API_KEY|KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?|AUTH|PASS|PASSPHRASE|PRIVATE_KEY)(?:$|_)/i;
@@ -21,7 +21,7 @@ function findOverrideHosts(name: string, options?: ClassifyOptions): string[] | 
     return null;
   }
 
-  return overrides[name] ?? overrides[name.toUpperCase()] ?? null;
+  return overrides[name] ?? overrides[name.toUpperCase()] ?? overrides[name.toLowerCase()] ?? null;
 }
 
 function resolveHostsFromName(name: string): {

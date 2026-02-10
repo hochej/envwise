@@ -35,6 +35,29 @@ classifyEnvForGondolin(process.env as Record<string, string>);
 If value and name both match, value decides the host.
 If value matches but has no host mapping, envwise falls back to name mapping.
 
+## Gondolin handoff
+
+```ts
+import { createHttpHooks } from "@earendil-works/gondolin/host";
+import { classifyEnvForGondolin } from "@hochej/envwise";
+
+const { secretsMap } = classifyEnvForGondolin(process.env as Record<string, string>);
+const { httpHooks, env } = createHttpHooks({ secrets: secretsMap });
+```
+
+## CLI
+
+```bash
+# inspect current process environment
+envwise inspect --env
+
+# inspect dotenv file
+envwise inspect --file .env
+
+# machine-readable output
+envwise inspect --file .env --json
+```
+
 ## Data layout
 
 - Runtime input: `data/gondolin/secret-mapping.gondolin.json`

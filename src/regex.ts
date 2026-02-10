@@ -26,6 +26,10 @@ export function normalizeRegexForJs(input: string): { pattern: string; flags: st
   pattern = pattern.replace(/\(\?i:/g, "(?:");
   pattern = pattern.replace(/\(\?-i:/g, "(?:");
 
+  // Some upstream patterns use Python-style named groups (`(?P<name>...)`).
+  // JavaScript uses `(?<name>...)`.
+  pattern = pattern.replace(/\(\?P<([A-Za-z][A-Za-z0-9_]*)>/g, "(?<$1>");
+
   return {
     pattern,
     flags: hasCaseInsensitive ? "i" : "",

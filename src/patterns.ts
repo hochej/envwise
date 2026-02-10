@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
-import { compilePattern } from "./regex";
-import type { SecretMappingData, ValuePattern } from "./types";
+import { compilePattern } from "./regex.js";
+import type { SecretMappingData, ValuePattern } from "./types.js";
 
 export interface CompiledPattern {
   id: string;
@@ -15,6 +15,20 @@ export interface PatternStore {
   compiledValuePatterns: CompiledPattern[];
   failedValuePatterns: Array<{ id: string; error: string }>;
   keywordEntries: Array<{ keyword: string; hosts: string[]; normalized: string }>;
+}
+
+const PATTERN_COMPILE_ERROR_CODE = "ENVWISE_PATTERN_COMPILE_FAILED";
+
+export class PatternCompilationError extends Error {
+  readonly code = PATTERN_COMPILE_ERROR_CODE;
+  readonly failures: Array<{ id: string; error: string }>;
+
+  constructor(failures: Array<{ id: string; error: string }>) {
+    const ids = failures.map((failure) => failure.id).join(", ");
+    super(`Failed to compile ${failures.length} value pattern(s): ${ids}`);
+    this.name = "PatternCompilationError";
+    this.failures = failures;
+  }
 }
 
 const DATA_PATH = new URL("../data/gondolin/secret-mapping.gondolin.json", import.meta.url);
@@ -62,6 +76,10 @@ export function getPatternStore(): PatternStore {
 
   const raw = JSON.parse(readFileSync(DATA_PATH, "utf8")) as SecretMappingData;
   const { compiledValuePatterns, failedValuePatterns } = compileValuePatterns(raw.value_patterns);
+
+  if (failedValuePatterns.length > 0) {
+    throw new PatternCompilationError(failedValuePatterns);
+  }
 
   const keywordEntries = Object.entries(raw.keyword_host_map)
     .map(([keyword, hosts]) => ({

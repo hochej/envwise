@@ -11,11 +11,10 @@ describe("gondolin mapping contract", () => {
     expect(store.raw.value_patterns).toHaveLength(221);
   });
 
-  it("compiles most value patterns for runtime matching", () => {
+  it("compiles all value patterns for runtime matching", () => {
     const store = getPatternStore();
 
-    // We should compile nearly all patterns after normalization.
-    expect(store.compiledValuePatterns.length).toBeGreaterThanOrEqual(210);
-    expect(store.failedValuePatterns.length).toBeLessThanOrEqual(11);
+    expect(store.compiledValuePatterns.length).toBe(store.raw.value_patterns.length);
+    expect(store.failedValuePatterns).toHaveLength(0);
   });
 });
