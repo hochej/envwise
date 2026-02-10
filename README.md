@@ -1,27 +1,27 @@
 # envwise
 
 <p align="center">
-  <img src="assets/envwise-hero.png" alt="envwise — the wise companion for your environment variables" width="720" />
+  <img src="assets/envwise-hero.png" alt="envwise — classify environment variables" width="720" />
 </p>
 
-Classify environment variables for Gondolin:
-- forward safe vars
-- route known secrets to host-side HTTP hooks by API host
-- drop secret-looking vars with no host mapping
+`envwise` classifies environment variables into three groups:
 
-## API (MVP)
+- **mapped secrets**: secret + known host(s)
+- **dropped secrets**: secret-like but no host mapping
+- **safe vars**: not classified as secret
+
+Primary use is as a **TypeScript library**. A CLI is also included for local inspection.
+
+## Library usage
 
 ```ts
-import { classify, classifyEnv, classifyEnvForGondolin } from "envwise";
+import { classify, classifyEnv } from "@hochej/envwise";
 
 classify("GITHUB_TOKEN", "ghp_...");
-// => { isSecret: true, matchedBy: "value", hosts: ["api.github.com"], ... }
+// => { isSecret: true, hosts: ["api.github.com"], matchedBy: "value", ... }
 
 classifyEnv(process.env as Record<string, string>);
 // => { secrets: [...], dropped: [...], safe: [...] }
-
-classifyEnvForGondolin(process.env as Record<string, string>);
-// => { secretsMap: { GITHUB_TOKEN: { hosts: ["api.github.com"], value: "..." } }, ... }
 ```
 
 ### Matching order
@@ -32,23 +32,13 @@ classifyEnvForGondolin(process.env as Record<string, string>);
 4. keyword name map (`keyword_host_map`, longest keyword wins)
 5. generic secret-name pattern (`KEY|TOKEN|SECRET|PASSWORD|...`)
 
-If value and name both match, value decides the host.
-If value matches but has no host mapping, envwise falls back to name mapping.
+If value and name both match, value wins.
+If value matches but has no host mapping, name mapping is used as fallback.
 
-## Gondolin handoff
-
-```ts
-import { createHttpHooks } from "@earendil-works/gondolin/host";
-import { classifyEnvForGondolin } from "@hochej/envwise";
-
-const { secretsMap } = classifyEnvForGondolin(process.env as Record<string, string>);
-const { httpHooks, env } = createHttpHooks({ secrets: secretsMap });
-```
-
-## CLI
+## CLI usage
 
 ```bash
-# inspect current process environment
+# inspect current process env
 envwise inspect --env
 
 # inspect dotenv file
@@ -58,16 +48,21 @@ envwise inspect --file .env
 envwise inspect --file .env --json
 ```
 
-## Data layout
+## Optional integration helper
 
-- Runtime input: `data/gondolin/secret-mapping.gondolin.json`
-- Curated classifier fixtures: `test/fixtures/{valid-secrets.env,invalid-vars.env}`
+For consumers that need a `Record<name, { hosts, value }>` shape, use:
 
-## Commands
+```ts
+import { classifyEnvForGondolin } from "@hochej/envwise";
+
+const { secretsMap } = classifyEnvForGondolin(process.env as Record<string, string>);
+```
+
+## Development
 
 ```bash
 pnpm install
-pnpm mapping:update -- --tag v0.1.4  # or: --latest
+pnpm mapping:update -- --latest
 pnpm fixtures:curate
 pnpm fixtures:check
 pnpm test
