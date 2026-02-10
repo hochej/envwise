@@ -11,6 +11,7 @@ interface CliOptions {
   filePath?: string;
   json: boolean;
   showSafe: boolean;
+  includeSecretValues: boolean;
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -18,6 +19,7 @@ function parseArgs(argv: string[]): CliOptions {
   let filePath: string | undefined;
   let json = false;
   let showSafe = false;
+  let includeSecretValues = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -48,6 +50,11 @@ function parseArgs(argv: string[]): CliOptions {
       continue;
     }
 
+    if (arg === "--include-secret-values") {
+      includeSecretValues = true;
+      continue;
+    }
+
     if (arg === "-h" || arg === "--help") {
       printHelp(0);
     }
@@ -64,6 +71,7 @@ function parseArgs(argv: string[]): CliOptions {
     filePath,
     json,
     showSafe,
+    includeSecretValues,
   };
 }
 
@@ -71,15 +79,16 @@ function printHelp(exitCode: number): never {
   const text = `envwise CLI
 
 Usage:
-  envwise inspect --env [--json] [--show-safe]
-  envwise inspect --file .env [--json] [--show-safe]
+  envwise inspect --env [--json] [--show-safe] [--include-secret-values]
+  envwise inspect --file .env [--json] [--show-safe] [--include-secret-values]
 
 Options:
-  --env         inspect current process env (default)
-  --file PATH   inspect dotenv file
-  --json        print machine-readable JSON
-  --show-safe   include safe variable names in text output
-  -h, --help    show this help
+  --env                   inspect current process env (default)
+  --file PATH             inspect dotenv file
+  --json                  print machine-readable JSON
+  --show-safe             include safe variable names in text output
+  --include-secret-values include plaintext secret values in JSON output (dangerous)
+  -h, --help              show this help
 `;
 
   if (exitCode === 0) {
@@ -101,6 +110,21 @@ function toStringEnv(input: NodeJS.ProcessEnv): Record<string, string> {
   }
 
   return out;
+}
+
+function redactSecretsMap(
+  secretsMap: ReturnType<typeof classifyEnvForGondolin>["secretsMap"],
+): ReturnType<typeof classifyEnvForGondolin>["secretsMap"] {
+  const redacted: ReturnType<typeof classifyEnvForGondolin>["secretsMap"] = {};
+
+  for (const [name, secret] of Object.entries(secretsMap)) {
+    redacted[name] = {
+      hosts: secret.hosts,
+      value: "[REDACTED]",
+    };
+  }
+
+  return redacted;
 }
 
 function printTextResult(
@@ -162,13 +186,19 @@ async function main(): Promise<void> {
   const result = classifyEnvForGondolin(env);
 
   if (options.json) {
+    const secretsMap = options.includeSecretValues
+      ? result.secretsMap
+      : redactSecretsMap(result.secretsMap);
+
     process.stdout.write(
       `${JSON.stringify(
         {
           source: options.mode,
           file: options.filePath,
           parseErrors,
+          secretValuesIncluded: options.includeSecretValues,
           ...result,
+          secretsMap,
         },
         null,
         2,

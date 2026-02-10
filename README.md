@@ -44,8 +44,11 @@ envwise inspect --env
 # inspect dotenv file
 envwise inspect --file .env
 
-# machine-readable output
+# machine-readable output (secret values redacted by default)
 envwise inspect --file .env --json
+
+# include plaintext secret values (dangerous; use with care)
+envwise inspect --file .env --json --include-secret-values
 ```
 
 ## Optional integration helper

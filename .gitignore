@@ -10,3 +10,6 @@ __pycache__/
 node_modules/
 .pnpm-store/
 coverage/
+
+# Local audit scratch
+TODO.md
