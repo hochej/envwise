@@ -12,13 +12,16 @@ Classify environment variables for Gondolin:
 ## API (MVP)
 
 ```ts
-import { classify, classifyEnv } from "envwise";
+import { classify, classifyEnv, classifyEnvForGondolin } from "envwise";
 
 classify("GITHUB_TOKEN", "ghp_...");
 // => { isSecret: true, matchedBy: "value", hosts: ["api.github.com"], ... }
 
 classifyEnv(process.env as Record<string, string>);
 // => { secrets: [...], dropped: [...], safe: [...] }
+
+classifyEnvForGondolin(process.env as Record<string, string>);
+// => { secretsMap: { GITHUB_TOKEN: { hosts: ["api.github.com"], value: "..." } }, ... }
 ```
 
 ### Matching order
@@ -41,8 +44,10 @@ If value matches but has no host mapping, envwise falls back to name mapping.
 
 ```bash
 pnpm install
+pnpm mapping:update -- --tag v0.1.4  # or: --latest
 pnpm fixtures:curate
 pnpm fixtures:check
 pnpm test
 pnpm typecheck
+pnpm build
 ```

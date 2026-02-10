@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { classify, classifyEnv } from "../src";
+import { classify, classifyEnv, classifyEnvForGondolin } from "../src";
 
 function buildGithubPat(): string {
   return `ghp_${"A".repeat(36)}`;
@@ -100,6 +100,24 @@ describe("classifier MVP", () => {
     const result = classifyEnv(env);
 
     expect(result.secrets.map((r) => r.name)).toContain("GITHUB_TOKEN");
+    expect(result.dropped.map((r) => r.name)).toContain("CUSTOM_SECRET");
+    expect(result.safe).toContain("PATH");
+  });
+
+  it("builds gondolin-compatible secrets map", () => {
+    const env = {
+      GITHUB_TOKEN: buildGithubPat(),
+      CUSTOM_SECRET: "placeholder",
+      PATH: "/usr/bin:/bin",
+    };
+
+    const result = classifyEnvForGondolin(env);
+
+    expect(Object.keys(result.secretsMap)).toEqual(["GITHUB_TOKEN"]);
+    expect(result.secretsMap.GITHUB_TOKEN).toEqual({
+      hosts: ["api.github.com"],
+      value: env.GITHUB_TOKEN,
+    });
     expect(result.dropped.map((r) => r.name)).toContain("CUSTOM_SECRET");
     expect(result.safe).toContain("PATH");
   });

@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!test/fixtures/raw", "!test/reference", "!data/gondolin", "!node_modules"]
+    "includes": [
+      "**",
+      "!dist",
+      "!test/fixtures/raw",
+      "!test/reference",
+      "!data/gondolin",
+      "!node_modules"
+    ]
   },
   "formatter": {
     "enabled": true,
