@@ -136,21 +136,26 @@ function normalizeInlineFlags(pattern: string): string {
 function stripInlineFlags(pattern: string): { pattern: string; flags: string } {
   const collectedFlags = new Set<string>();
 
-  // 1. Strip scoped modifiers: `(?i:` → `(?:`, collecting flags.
-  const SCOPED_RE = /\(\?([ims]+):/g;
-  let stripped = pattern.replace(SCOPED_RE, (_match, flags: string) => {
-    for (const ch of flags) {
-      collectedFlags.add(ch);
+  // 1. Strip scoped modifiers: `(?i:` / `(?-i:` → `(?:`, collecting positive flags.
+  const SCOPED_RE = /\(\?(-?)([ims]+):/g;
+  let stripped = pattern.replace(SCOPED_RE, (_match, neg: string, flags: string) => {
+    if (!neg) {
+      for (const ch of flags) {
+        collectedFlags.add(ch);
+      }
     }
 
+    // Both `(?i:` and `(?-i:` become plain non-capturing groups.
     return "(?:";
   });
 
-  // 2. Strip bare modifiers: `(?i)` → `` (empty string).
-  const BARE_RE = /\(\?([ims]+)\)/g;
-  stripped = stripped.replace(BARE_RE, (_match, flags: string) => {
-    for (const ch of flags) {
-      collectedFlags.add(ch);
+  // 2. Strip bare modifiers: `(?i)` / `(?-i)` → `` (empty string).
+  const BARE_RE = /\(\?(-?)([ims]+)\)/g;
+  stripped = stripped.replace(BARE_RE, (_match, neg: string, flags: string) => {
+    if (!neg) {
+      for (const ch of flags) {
+        collectedFlags.add(ch);
+      }
     }
 
     return "";
