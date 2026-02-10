@@ -11,15 +11,37 @@ const POSIX_CLASS_REPLACEMENTS: Array<[RegExp, string]> = [
 const INLINE_FLAG_TOKEN_RE = /^\(\?([A-Za-z-]+)\)/;
 const SUPPORTED_INLINE_FLAGS_RE = /^-?[ims]+$/;
 
+// Scoped modifiers like `(?i:...)` landed in V8 12.x / Node 23+.
+// Detect once at load time so we can fall back on older runtimes.
+let _scopedModifiersSupported: boolean | null = null;
+
+function scopedModifiersSupported(): boolean {
+  if (_scopedModifiersSupported === null) {
+    try {
+      // biome-ignore lint/complexity/useRegexLiterals: literal `/(?i:a)/` would be a syntax error on Node <23 at parse time
+      new RegExp("(?i:a)");
+      _scopedModifiersSupported = true;
+    } catch {
+      _scopedModifiersSupported = false;
+    }
+  }
+
+  return _scopedModifiersSupported;
+}
+
+/**
+ * Rewrite bare inline modifiers (e.g. `(?i)`) into scoped groups
+ * (e.g. `(?i:...)`) that extend to the end of the current group depth.
+ *
+ * This is the path used on Node 23+ where the engine natively supports
+ * scoped modifiers.
+ */
 function normalizeInlineFlags(pattern: string): string {
   let out = "";
   let escaped = false;
   let inCharClass = false;
   let depth = 0;
 
-  // Bare inline modifiers (e.g. `(?i)`) are not supported by JavaScript,
-  // but scoped modifiers (e.g. `(?i:...)`) are. We rewrite bare modifiers
-  // into scoped groups that extend to the end of the current group depth.
   const pendingClosures = new Map<number, number>();
 
   const queueClosure = (groupDepth: number): void => {
@@ -102,6 +124,44 @@ function normalizeInlineFlags(pattern: string): string {
   return out;
 }
 
+/**
+ * Fallback for runtimes that do not support scoped modifiers (Node < 23).
+ *
+ * Strips both bare `(?i)` and scoped `(?i:...)` groups and collects the
+ * flags so the caller can apply them globally.  This is slightly broader
+ * than the original pattern intent (a global `i` flag makes the *entire*
+ * regex case-insensitive), but for secret-detection patterns that is
+ * acceptable — being more permissive only increases recall.
+ */
+function stripInlineFlags(pattern: string): { pattern: string; flags: string } {
+  const collectedFlags = new Set<string>();
+
+  // 1. Strip scoped modifiers: `(?i:` → `(?:`, collecting flags.
+  const SCOPED_RE = /\(\?([ims]+):/g;
+  let stripped = pattern.replace(SCOPED_RE, (_match, flags: string) => {
+    for (const ch of flags) {
+      collectedFlags.add(ch);
+    }
+
+    return "(?:";
+  });
+
+  // 2. Strip bare modifiers: `(?i)` → `` (empty string).
+  const BARE_RE = /\(\?([ims]+)\)/g;
+  stripped = stripped.replace(BARE_RE, (_match, flags: string) => {
+    for (const ch of flags) {
+      collectedFlags.add(ch);
+    }
+
+    return "";
+  });
+
+  return {
+    pattern: stripped,
+    flags: [...collectedFlags].sort().join(""),
+  };
+}
+
 export function normalizeRegexForJs(input: string): { pattern: string; flags: string } {
   let pattern = input;
 
@@ -113,17 +173,20 @@ export function normalizeRegexForJs(input: string): { pattern: string; flags: st
     pattern = pattern.replace(source, target);
   }
 
-  // Rewrite bare inline flags (`(?i)`, `(?s)`, `(?m)`) into scoped groups.
-  pattern = normalizeInlineFlags(pattern);
-
   // Some upstream patterns use Python-style named groups (`(?P<name>...)`).
   // JavaScript uses `(?<name>...)`.
   pattern = pattern.replace(/\(\?P<([A-Za-z][A-Za-z0-9_]*)>/g, "(?<$1>");
 
-  return {
-    pattern,
-    flags: "",
-  };
+  if (scopedModifiersSupported()) {
+    // Rewrite bare inline flags (`(?i)`) into scoped groups (`(?i:...)`).
+    // Existing scoped groups pass through untouched.
+    pattern = normalizeInlineFlags(pattern);
+    return { pattern, flags: "" };
+  }
+
+  // Fallback: strip all inline flags and promote to global flags.
+  const result = stripInlineFlags(pattern);
+  return result;
 }
 
 export function compilePattern(input: string): RegExp {
