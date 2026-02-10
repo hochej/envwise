@@ -20,19 +20,27 @@ export function normalizeRegexForJs(input: string): { pattern: string; flags: st
   }
 
   // JavaScript does not support inline flag groups from RE2/PCRE style.
-  // We conservatively hoist case-insensitive behavior to top-level flag.
+  // We conservatively hoist case-insensitive / dotall behavior to top-level flags.
   const hasCaseInsensitive = pattern.includes("(?i)") || pattern.includes("(?i:");
+  const hasDotAll = pattern.includes("(?s)");
+
   pattern = pattern.replace(/\(\?i\)/g, "");
   pattern = pattern.replace(/\(\?i:/g, "(?:");
   pattern = pattern.replace(/\(\?-i:/g, "(?:");
+
+  // RE2-style scoped dotall tokens used by some upstream rules.
+  pattern = pattern.replace(/\(\?s:\.\)/g, "[\\s\\S]");
+  pattern = pattern.replace(/\(\?s\)/g, "");
 
   // Some upstream patterns use Python-style named groups (`(?P<name>...)`).
   // JavaScript uses `(?<name>...)`.
   pattern = pattern.replace(/\(\?P<([A-Za-z][A-Za-z0-9_]*)>/g, "(?<$1>");
 
+  const flags = `${hasCaseInsensitive ? "i" : ""}${hasDotAll ? "s" : ""}`;
+
   return {
     pattern,
-    flags: hasCaseInsensitive ? "i" : "",
+    flags,
   };
 }
 

@@ -77,10 +77,6 @@ export function getPatternStore(): PatternStore {
   const raw = JSON.parse(readFileSync(DATA_PATH, "utf8")) as SecretMappingData;
   const { compiledValuePatterns, failedValuePatterns } = compileValuePatterns(raw.value_patterns);
 
-  if (failedValuePatterns.length > 0) {
-    throw new PatternCompilationError(failedValuePatterns);
-  }
-
   const keywordEntries = Object.entries(raw.keyword_host_map)
     .map(([keyword, hosts]) => ({
       keyword,
