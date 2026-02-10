@@ -1,6 +1,12 @@
 # envwise
 
 <p align="center">
+  <a href="https://github.com/hochej/envwise/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/hochej/envwise/ci.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/hochej/envwise/actions/workflows/publish.yml"><img alt="Publish status" src="https://img.shields.io/github/actions/workflow/status/hochej/envwise/publish.yml?style=flat-square&label=publish" /></a>
+  <a href="https://www.npmjs.com/package/@hochej/envwise"><img alt="npm version" src="https://img.shields.io/npm/v/%40hochej%2Fenvwise?style=flat-square" /></a>
+</p>
+
+<p align="center">
   <img src="assets/envwise-hero.png" alt="envwise — classify environment variables" width="720" />
 </p>
 
