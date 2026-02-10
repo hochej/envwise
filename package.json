@@ -2,6 +2,7 @@
   "name": "@hochej/envwise",
   "version": "0.1.0",
   "description": "Classify environment variables into safe, mapped secret, and dropped secret sets.",
+  "license": "Apache-2.0",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
@@ -21,7 +22,8 @@
   "files": [
     "dist",
     "data/gondolin/secret-mapping.gondolin.json",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "repository": {
     "type": "git",
