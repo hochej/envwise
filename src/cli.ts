@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { parseDotenv } from "./dotenv.js";
 import { classifyEnvForGondolin } from "./integration.js";
@@ -271,7 +272,13 @@ function isMainModule(): boolean {
     return false;
   }
 
-  return import.meta.url === pathToFileURL(entry).href;
+  try {
+    const entryPath = realpathSync(entry);
+    const selfPath = realpathSync(fileURLToPath(import.meta.url));
+    return entryPath === selfPath;
+  } catch {
+    return import.meta.url === pathToFileURL(entry).href;
+  }
 }
 
 if (isMainModule()) {

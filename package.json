@@ -1,6 +1,6 @@
 {
   "name": "@hochej/envwise",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Classify environment variables into safe, mapped secret, and dropped secret sets.",
   "license": "Apache-2.0",
   "private": false,
