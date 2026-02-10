@@ -1,13 +1,13 @@
 # envwise
 
 <p align="center">
-  <a href="https://github.com/hochej/envwise/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/hochej/envwise/ci.yml?style=flat-square&branch=main" /></a>
-  <a href="https://github.com/hochej/envwise/actions/workflows/publish.yml"><img alt="Publish status" src="https://img.shields.io/github/actions/workflow/status/hochej/envwise/publish.yml?style=flat-square&label=publish" /></a>
-  <a href="https://www.npmjs.com/package/@hochej/envwise"><img alt="npm version" src="https://img.shields.io/npm/v/%40hochej%2Fenvwise?style=flat-square" /></a>
+  <img src="assets/envwise-hero.png" alt="envwise — classify environment variables" width="720" />
 </p>
 
 <p align="center">
-  <img src="assets/envwise-hero.png" alt="envwise — classify environment variables" width="720" />
+  <a href="https://github.com/hochej/envwise/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/hochej/envwise/ci.yml?style=flat-square&branch=main" /></a>
+  <a href="https://github.com/hochej/envwise/actions/workflows/publish.yml"><img alt="Publish status" src="https://img.shields.io/github/actions/workflow/status/hochej/envwise/publish.yml?style=flat-square&label=publish" /></a>
+  <a href="https://www.npmjs.com/package/@hochej/envwise"><img alt="npm version" src="https://img.shields.io/npm/v/%40hochej%2Fenvwise?style=flat-square" /></a>
 </p>
 
 `envwise` classifies environment variables into three groups:
@@ -17,6 +17,14 @@
 - **safe vars**: not classified as secret
 
 Primary use is as a **TypeScript library**. A CLI is also included for local inspection.
+
+Published on npm as [`@hochej/envwise`](https://www.npmjs.com/package/@hochej/envwise).
+
+## Install
+
+```bash
+pnpm add @hochej/envwise
+```
 
 ## Library usage
 
@@ -51,21 +59,23 @@ If value matches but has no host mapping, name mapping is used as fallback.
 
 ## CLI usage
 
+Use via npx (no global install needed):
+
 ```bash
 # inspect current process env
-envwise inspect --env
+npx @hochej/envwise inspect --env
 
 # inspect dotenv file
-envwise inspect --file .env
+npx @hochej/envwise inspect --file .env
 
 # opt-in dotenv variable interpolation (can be slow on very large files)
-envwise inspect --file .env --expand
+npx @hochej/envwise inspect --file .env --expand
 
 # machine-readable output (secret values redacted by default)
-envwise inspect --file .env --json
+npx @hochej/envwise inspect --file .env --json
 
 # include plaintext secret values (dangerous; use with care)
-envwise inspect --file .env --json --include-secret-values
+npx @hochej/envwise inspect --file .env --json --include-secret-values
 ```
 
 ## Optional integration helper
